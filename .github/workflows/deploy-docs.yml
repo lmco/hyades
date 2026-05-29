@@ -20,11 +20,13 @@ on:
   push:
     paths:
       - "docs/**"
+      - "overrides/**"
       - mkdocs.yml
     branches:
       - main
   release:
     types:
+    - prereleased
     - released
 
 permissions: { }
@@ -37,17 +39,17 @@ jobs:
       contents: write # Required to create releases
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # tag=v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # tag=v6.0.2
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # tag=v5.3.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # tag=v6.2.0
         with:
           python-version: "3.9"
           check-latest: true
       - name: Install Requirements
         run: |-
-          pip install 'mkdocs-material[imaging]' mike
+          pip install 'mkdocs-material[imaging]' mike mkdocs-swagger-ui-tag
       - name: Determine Project Version
         id: determine_version
         run: |-
@@ -56,6 +58,8 @@ jobs:
           ALIASES=""
           if [[ $VERSION == *-SNAPSHOT ]]; then
             ALIASES="snapshot"
+          elif [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+            ALIASES=""
           else
             ALIASES="latest"
           fi

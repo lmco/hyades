@@ -5,21 +5,18 @@
 
 ## Introduction
 
-Project *Hyades*, named after [the star cluster closest to earth], is an *incubating* project for decoupling
-responsibilities from [Dependency-Track]'s monolithic API server into separate, scalable™ services.
+Project *Hyades*, named after [the star cluster closest to earth], is the next generation of Dependency-Track,
+rearchitected for scale, resilience, and ease of operation.
 
 The main objectives of Hyades are:
 
-* Enable Dependency-Track to handle portfolios spanning *hundreds of thousands of projects*
-* Improve *resilience* of Dependency-Track, providing *more confidence* when relying on it in critical workflows
-* Improve deployment and configuration management experience for containerized / cloud native tech stacks
+* Enable Dependency-Track to handle portfolios spanning *hundreds of thousands of projects*.
+* Improve *resilience* of Dependency-Track, providing *more confidence* when relying on it in critical workflows.
+* Improve deployment and configuration management experience for containerized / cloud native tech stacks.
 
-Other than separating responsibilities, the API server has been modified to allow for high availability
-(active-active) deployments. Various "hot paths", like processing of uploaded BOMs, have been optimized
-in the existing code. Further optimization is an ongoing effort.
-
-Hyades already is a *superset* of Dependency-Track, as changes up to Dependency-Track v4.11.4 were ported,
-and features made possible by the new architecture have been implemented on top.
+To achieve this, the platform has undergone significant architectural improvements, including [durable execution]
+for reliable background processing, a PostgreSQL-optimized persistence layer, a [new CEL-based policy engine],
+and a modernized [configuration system].
 
 !!! warning
     Hyades is not yet fully production ready, please refer to the
@@ -34,7 +31,7 @@ and features made possible by the new architecture have been implemented on top.
 ??? abstract "tl;dr"
     The architecture of Dependency-Track v4 prevents it from scaling past a certain workload.
 
-Dependency-Track, for the most part, is an event-based system. As a platform for ingesting data (in the form of BOMs),
+Dependency-Track v4, for the most part, is an event-based system. As a platform for ingesting data (in the form of BOMs),
 listening for and itself emitting signals on it, an event-based architecture makes sense conceptually. The majority of
 operations Dependency-Track performs happen asynchronously, without client interaction.
 
@@ -100,8 +97,6 @@ While this architecture works great for small to medium workloads, it presents v
    would be an even bigger problem if the work was shared across multiple application instances, and would require
    distributed locking as a countermeasure, which is [inherently hard to get right](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html).
 
-In order to scale Dependency-Track beyond its current capabilities, a distributed messaging service is required.
-
 ### Related Issues
 
 On multiple occasions in the past, the Dependency-Track community raised questions about high availability (HA)
@@ -112,9 +107,10 @@ deployments, and / or how to better scale the platform:
 * <https://github.com/DependencyTrack/dependency-track/issues/1210>
 * <https://github.com/DependencyTrack/dependency-track/issues/1856>
 
-[the star cluster closest to earth]: https://en.wikipedia.org/wiki/Hyades_(star_cluster)
-[Apache Kafka]: https://kafka.apache.org/
 [Changes over v4]: getting-started/changes-over-v4.md
 [Dependency-Track]: https://dependencytrack.org/
 [Migrating from v4]: getting-started/migrating-from-v4.md
-[Redpanda]: https://redpanda.com/
+[configuration system]: operations/configuration/overview.md
+[durable execution]: architecture/design/durable-execution.md
+[new CEL-based policy engine]: usage/policy-compliance/expressions.md
+[the star cluster closest to earth]: https://en.wikipedia.org/wiki/Hyades_(star_cluster)

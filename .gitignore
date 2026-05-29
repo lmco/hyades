@@ -41,10 +41,6 @@ nb-configuration.xml
 # Local environment
 .env
 
-# Secret key
-secret.key
-!*/src/test/resources/secret.key
-
 # Host volume mount for demo
 apiserver-data/
 
@@ -59,10 +55,3 @@ testdata/boms/generated/*.cdx.json
 .cache/
 /test-results/
 /blob-report/
-
-# Playwright E2E
-/playwright-test-results/
-/e2e/playwright-tests/resources/locales
-/e2e/playwright-tests/**/.*
-/e2e/playwright-tests/**/node_modules
-playwright-report

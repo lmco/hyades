@@ -1,6 +1,6 @@
 Dependency-Track requires a [PostgreSQL], or PostgreSQL-compatible database to operate.
 
-The lowest supported version is 13. You are encouraged to use the [newest available version].
+The lowest supported version is 14. You are encouraged to use the [newest available version].
 
 Depending on available resources, individual preferences, or organizational policies,
 you will have to choose between a [managed](#managed-solutions), or [self-hosted](#self-hosting) solution.
@@ -67,7 +67,26 @@ without being impacted by other applications.
 
 For smaller and non-critical deployments, it is totally fine to run everything on a single machine.
 
-#### Basic Configuration
+#### Upgrades
+
+Follow the [official upgrading guide]. Be sure to select the version of the documentation that corresponds to the
+PostgreSQL version you are running.
+
+!!! warning
+    Pay attention to the fact that **major version upgrades usually require a backup-and-restore cycle**, due to potentially
+    breaking changes in the underlying data storage format. Minor version upgrades are usually safe to perform in a
+    rolling manner.
+
+### Kubernetes
+
+We generally advise **against** running PostgreSQL on Kubernetes, unless you *really* know what you're doing.
+Wielding heavy machinery such as [Postgres Operator] is not something you should do lightheartedly.
+
+If you know what you're doing, you definitely don't need advice from us. Smooth sailing! ⚓️
+
+## Configuration
+
+### Basic
 
 You should be aware that the default PostgreSQL configuration is *extremely* conservative.
 It is intended to make PostgreSQL usable on minimal hardware, which is great for testing,
@@ -97,7 +116,7 @@ services:
         -c 'effective_cache_size=6GB'
 ```
 
-#### Advanced Configuration
+### Advanced
 
 For larger deployments, you may eventually run into situations where database performance degrades
 with just the basic configuration applied. Oftentimes, tweaking advanced settings can resolve
@@ -114,43 +133,7 @@ applied for certain tables.
     Got more tips to configure or tune PostgreSQL, that may be helpful to others?  
     We'd love to include it in the docs, please do raise a PR!
 
-##### checkpoint_completion_target
-
-<table>
-  <tbody style="border: 0">
-    <tr>
-      <th style="text-align: right">Default</th>
-      <td style="border-width: 0">
-        <ul>
-          <li><code>0.5</code> (PostgreSQL <= 13)</li>
-          <li><code>0.9</code> (PostgreSQL >= 14)</li>
-        </ul>
-      </td>
-    </tr>
-    <tr>
-      <th style="text-align: right">Recommendation</th>
-      <td style="border-width: 0"><code>0.9</code></td>
-    </tr>
-    <tr>
-      <th style="text-align: right">Tables</th>
-      <td style="border-width: 0"><code>*</code></td>
-    </tr>
-    <tr>
-      <th style="text-align: right">References</th>
-      <td style="border-width: 0"><a href="https://www.postgresql.org/docs/current/runtime-config-wal.html#GUC-CHECKPOINT-COMPLETION-TARGET">Documentation</a></td>
-    </tr>
-  </tbody>
-</table>
-
-Spreads the WAL checkpoint creation across a longer period of time,
-resulting in a more evenly distributed I/O load. A lower value has been observed
-to cause undesirable spikes in I/O usage on the database server.
-
-```sql
-ALTER SYSTEM SET CHECKPOINT_COMPLETION_TARGET = 0.9;
-```
-
-##### autovacuum_vacuum_scale_factor
+#### autovacuum_vacuum_scale_factor
 
 <table>
   <tbody style="border: 0">
@@ -167,13 +150,12 @@ ALTER SYSTEM SET CHECKPOINT_COMPLETION_TARGET = 0.9;
       <td style="border-width: 0">
         <ul>
           <li><code>COMPONENT</code></li>
-          <li><code>DEPENDENCYMETRICS</code></li>
         </ul>
       </td>
     </tr>
     <tr>
       <th style="text-align: right">References</th>
-      <td style="border-width: 0"><a href="https://www.postgresql.org/docs/current/runtime-config-autovacuum.html#GUC-AUTOVACUUM-VACUUM-SCALE-FACTOR">Documentation</a></td>
+      <td style="border-width: 0"><a href="https://postgresqlco.nf/doc/en/param/autovacuum_vacuum_scale_factor/">Documentation</a></td>
     </tr>
   </tbody>
 </table>
@@ -182,32 +164,85 @@ The default causes [Autovacuum] to start way too late on large tables with lots 
 yielding long execution times. Reduction in scale factor causes autovacuum to happen more often,
 making each execution less time-intensive.
 
-The `COMPONENT` and `DEPENDENCYMETRICS` table are very frequently inserted into, updated, and deleted from.
+The `COMPONENT` table is very frequently inserted into, updated, and deleted from.
 This causes lots of dead tuples that PostgreSQL needs to clean up. Because autovacuum also performs
 [`ANALYZE`](https://www.postgresql.org/docs/current/sql-analyze.html), slow vacuuming can cause the
 query planner to choose inefficient execution plans.
 
 ```sql
 ALTER TABLE "COMPONENT" SET (AUTOVACUUM_VACUUM_SCALE_FACTOR = 0.02);
-ALTER TABLE "DEPENDENCYMETRICS" SET (AUTOVACUUM_VACUUM_SCALE_FACTOR = 0.02);
 ```
 
-#### Upgrades
+#### default_toast_compression
 
-Follow the [official upgrading guide]. Be sure to select the version of the documentation that corresponds to the
-PostgreSQL version you are running.
+<table>
+  <tbody style="border: 0">
+    <tr>
+      <th style="text-align: right">Default</th>
+      <td style="border-width: 0"><code>pglz</code></td>
+    </tr>
+    <tr>
+      <th style="text-align: right">Recommendation</th>
+      <td style="border-width: 0"><code>lz4</code></td>
+    </tr>
+    <tr>
+      <th style="text-align: right">References</th>
+      <td style="border-width: 0">
+        <ul>
+          <li><a href="https://postgresqlco.nf/doc/en/param/default_toast_compression/">Documentation</a></li>
+          <li><a href="https://www.postgresql.fastware.com/blog/what-is-the-new-lz4-toast-compression-in-postgresql-14">Comparison by Fujitsu</a></li>
+          <li><a href="https://www.tigerdata.com/blog/optimizing-postgresql-performance-compression-pglz-vs-lz4">Comparison by Tiger Data</a></li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
 
-!!! warning
-    Pay attention to the fact that **major version upgrades usually require a backup-and-restore cycle**, due to potentially
-    breaking changes in the underlying data storage format. Minor version upgrades are usually safe to perform in a
-    rolling manor.
+`lz4` compression is faster and more efficient than `pglz`,
+at the expense of slightly worse compression ratios.
 
-### Kubernetes
+Consider switching to lz4 if you're more likely to be limited
+by CPU utilisation than storage space.
 
-We generally advise **against** running PostgreSQL on Kubernetes, unless you *really* know what you're doing.
-Wielding heavy machinery such as [Postgres Operator] is not something you should do lightheartedly.
+```sql
+ALTER SYSTEM SET (DEFAULT_TOAST_COMPRESSION = 'lz4');
+```
 
-If you know what you're doing, you definitely don't need advice from us. Smooth sailing! ⚓️
+#### wal_compression
+
+<table>
+  <tbody style="border: 0">
+    <tr>
+      <th style="text-align: right">Default</th>
+      <td style="border-width: 0"><code>off</code></td>
+    </tr>
+    <tr>
+      <th style="text-align: right">Recommendation</th>
+      <td style="border-width: 0"><code>lz4</code> or <code>zstd</code></td>
+    </tr>
+    <tr>
+      <th style="text-align: right">References</th>
+      <td style="border-width: 0">
+        <ul>
+          <li><a href="https://postgresqlco.nf/doc/en/param/wal_compression/">Documentation</a></li>
+          <li><a href="https://www.enterprisedb.com/blog/you-can-now-pick-your-favorite-compression-algorithm-your-wals">Comparison by EnterpriseDB</a></li>
+          <li><a href="https://www.percona.com/blog/wal-compression-in-postgresql-and-recent-improvements-in-version-15/">Explanation by Percona</a></li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+Enabling WAL compression significantly reduces I/O on write-heavy systems.
+The cost of slightly increased CPU utilisation is more than worth it.
+
+If your instance is importing BOMs in large volumes and / or high frequency,
+the WAL will fill up fast, and you'll find yourself limited by I/O.
+This is particularly true when using HDDs instead of SSDs or NVME storage.
+
+```sql
+ALTER SYSTEM SET (WAL_COMPRESSION = 'zstd');
+```
 
 ## Schema Migrations
 
@@ -215,18 +250,27 @@ Schema migrations are performed automatically by the API server upon startup. It
 There is usually no manual action required when upgrading from an older Dependency-Track version, unless explicitly
 stated otherwise in the release notes.
 
-This behavior can be turned off by setting [`database.run.migrations`](../reference/configuration/api-server.md#databaserunmigrations) 
+This behaviour can be turned off by setting [`init.tasks.enabled`](../reference/configuration/api-server.md#inittasksenabled) 
 on the API server container to `false`.
 
 It is possible to use different credentials for migrations than for the application itself.
-This can be achieved with the following options:
+This can be achieved by configuring a separate data source, and instructing the init tasks to use it:
 
-* [`database.migration.url`](../reference/configuration/api-server.md#databasemigrationurl)
-* [`database.migration.username`](../reference/configuration/api-server.md#databasemigrationusername)
-* [`database.migration.password`](../reference/configuration/api-server.md#databasemigrationpassword)
+```ini linenums="1"
+# Configure a data source named "init-tasks".
+dt.datasource.init-tasks.url=jdbc:postgresql://localhost:5432/dtrack
+dt.datasource.init-tasks.username=my-init-task-user
+dt.datasource.init-tasks.password=my-init-task-pass
 
-The above with default to the main database credentials if not provided explicitly.
+# Configure init tasks to use the data source.
+init.tasks.datasource.name=init-tasks
 
+# If the data source is only meant for init tasks, there is no need to
+# keep it around after the tasks completed.
+init.tasks.datasource.close-after-use=true
+```
+
+[Autovacuum]: https://www.postgresql.org/docs/current/routine-vacuuming.html
 [CockroachDB]: https://www.cockroachlabs.com/
 [Liquibase]: https://www.liquibase.com/
 [Neon]: https://neon.tech/
@@ -239,4 +283,3 @@ The above with default to the main database credentials if not provided explicit
 [list of well-known commercial hosting providers]: https://www.postgresql.org/support/professional_hosting/
 [newest available version]: https://www.postgresql.org/support/versioning/
 [official upgrading guide]: https://www.postgresql.org/docs/current/upgrading.html
-[Autovacuum]: https://www.postgresql.org/docs/current/routine-vacuuming.html
